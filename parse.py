@@ -5,7 +5,7 @@ import re
 from nltk.corpus import stopwords
 nltk.download('stopwords')
 nltk.download('punkt')
-
+import time
 
 # invertedIndex = defaultdict(lambda:defaultdict(int))
 invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
@@ -128,6 +128,7 @@ class WikipediaHandler(ContentHandler):
 			invertedIndex.clear()
 	def characters(self,content):
 		self.buffer = self.buffer + content
+start = time.time()
 parse("enwiki-latest-pages-articles26.xml-p42567204p42663461", WikipediaHandler())
 # for key,val in sorted(invertedIndex.items()):
 # 	for k,v in sorted(val.items()):
@@ -139,3 +140,4 @@ for word in dictionary:
 	output = word + '#' + str(dictionary[word]) + '\n'
 	fptr1.write(output)
 fptr1.close()
+print(time.time()-start)

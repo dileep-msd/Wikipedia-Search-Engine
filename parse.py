@@ -3,9 +3,12 @@ import nltk
 from collections import defaultdict
 import re
 from nltk.corpus import stopwords
-nltk.download('stopwords')
-nltk.download('punkt')
+from spacy.lang.en import English
 import time
+import spacy
+
+nlp = English()
+tokenizer = nlp.Defaults.create_tokenizer(nlp)
 
 # invertedIndex = defaultdict(lambda:defaultdict(int))
 invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
@@ -14,7 +17,12 @@ count_words = 1
 docTitle = open("docTitle.txt","w") 
 
 # storing stopwords
-stopWords = set(stopwords.words('english'))
+f = open("stopwords.txt","r")
+stopWords = set()
+for line in f:
+	line = line.strip()
+	stopWords.add(line)
+print(stopWords)
 
 # porter stemmer
 ps = nltk.stem.PorterStemmer()
@@ -30,7 +38,7 @@ def addToIndex(words, ID, cur_type):
 	global count_words
 	for word in words:
 		if len(word) >= 3 and word not in stopWords:
-			word = ps.stem(word)
+			word = ps.stem(word.text)
 			if word not in dictionary:
 				dictionary[word] = count_words
 				count_words += 1
@@ -44,7 +52,7 @@ def parse_sentence(word, ID, title, text):
 	word = word.lower()
 	if title:
 		word = regEx.sub('', word)
-		words = nltk.tokenize.word_tokenize(word)
+		words = tokenizer(word)
 		addToIndex(words, ID, 't')
 	elif text:
 		# finding categories
@@ -52,7 +60,7 @@ def parse_sentence(word, ID, title, text):
 		word = regCateg.sub('',word)
 		categories = ' '.join(categories)
 		categories = reg_word(categories)
-		categories = nltk.tokenize.word_tokenize(categories)
+		categories = tokenizer(categories)
 		addToIndex(categories, ID, 'c')
 		
 		# finding references
@@ -60,7 +68,7 @@ def parse_sentence(word, ID, title, text):
 		word = regRef.sub('',word)
 		references = ' '.join(references)
 		references = reg_word(references)
-		references = nltk.tokenize.word_tokenize(references)
+		references = tokenizer(references)
 		addToIndex(references, ID, 'r')
 		
 		# content in infobox
@@ -68,12 +76,12 @@ def parse_sentence(word, ID, title, text):
 		word = regInfo.sub('',word)
 		infobox = ' '.join(infobox)
 		infobox = reg_word(infobox)
-		infobox = nltk.tokenize.word_tokenize(infobox)
+		infobox = tokenizer(infobox)
 		addToIndex(infobox, ID, 'i')
 		
 		# body of content
 		word = reg_word(word)
-		words = nltk.tokenize.word_tokenize(word)
+		words = tokenizer(word)
 		addToIndex(words, ID, 'b')
 class WikipediaHandler(ContentHandler):
 	def __init__(self):
@@ -111,31 +119,29 @@ class WikipediaHandler(ContentHandler):
 		elif self.idFlag:
 			self.buffer = ""
 			self.idFlag = 0
-		elif tag == "page" and self.ID % size_limit == 0:
-			# fptr = open("index.txt","a+")
-			fptr = open('indexes/'+str(int(self.ID/size_limit))+".txt","w+")
-			# dictionary[word]@ID:field#freq,
-			for word, list1 in sorted(invertedIndex.items()):
-				output = str(word) + "@"
-				for ID, list2 in sorted(list1.items()):
-					output += str(ID) + ":"
-					for field,freq in list2.items():
-						output = output + str(field) + "-" + str(freq) + "#"
-					output += ","
-				output += "\n"
-				fptr.write(output)
-			fptr.close()
-			invertedIndex.clear()
 	def characters(self,content):
 		self.buffer = self.buffer + content
 start = time.time()
-parse("enwiki-latest-pages-articles26.xml-p42567204p42663461", WikipediaHandler())
+parse("test_data.xml", WikipediaHandler())
 # for key,val in sorted(invertedIndex.items()):
 # 	for k,v in sorted(val.items()):
 # 		for k1,v1 in v.items():
 # 			print(key,k,k1,v1)
 # stores the 
 fptr1 = open("word_hash.txt","a+")
+fptr = open('indexes/1.txt',"w+")
+# dictionary[word]@ID:field#freq,
+for word, list1 in sorted(invertedIndex.items()):
+	output = str(word) + "@"
+	for ID, list2 in sorted(list1.items()):
+		output += str(ID) + ":"
+		for field,freq in list2.items():
+			output = output + str(field) + "-" + str(freq) + "#"
+	output += ","
+	output += "\n"
+	fptr.write(output)
+fptr.close()
+invertedIndex.clear()
 for word in dictionary:
 	output = word + '#' + str(dictionary[word]) + '\n'
 	fptr1.write(output)

@@ -1,14 +1,13 @@
 from xml.sax import parse, ContentHandler
-import nltk
 from collections import defaultdict
 import re
-from nltk.corpus import stopwords
 from spacy.lang.en import English
 import time
 import spacy
+from Stemmer import Stemmer
 
 nlp = English()
-tokenizer = nlp.Defaults.create_tokenizer(nlp)
+tokenizer = spacy.tokenizer.Tokenizer(nlp.vocab)
 
 # invertedIndex = defaultdict(lambda:defaultdict(int))
 invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
@@ -16,34 +15,28 @@ dictionary = {}
 count_words = 1
 docTitle = open("docTitle.txt","w") 
 
-# storing stopwords
-f = open("stopwords.txt","r")
-stopWords = set()
-for line in f:
-	line = line.strip()
-	stopWords.add(line)
-print(stopWords)
-
 # porter stemmer
-ps = nltk.stem.PorterStemmer()
+ps = Stemmer("porter")
 
 regEx = re.compile(r'[.,:;_\[\]{}()"/\']',re.DOTALL)
-regSym = re.compile(r'[~`!@#$%-^*+{\[}\]\|\\<>/?_\"]',re.DOTALL)
+regSym = re.compile(r'[~`!@#$%-^*+{\[}\]\|\\<>/?\_\"]',re.DOTALL)
 regCateg = re.compile(r'\[\[category:(.*?)\]\]', re.DOTALL)
 regInfo = re.compile(r'{{infobox(.*?)}}', re.DOTALL)
 regRef = re.compile(r'== ?references ?==(.*?)==', re.DOTALL)
 
-size_limit = 5000
 def addToIndex(words, ID, cur_type):
 	global count_words
 	for word in words:
-		if len(word) >= 3 and word not in stopWords:
-			word = ps.stem(word.text)
+		if len(word) >= 3 and not nlp.vocab[word.text].is_stop:
+			word = ps.stemWord(word.text)
+			if len(word) < 3:
+				continue
 			if word not in dictionary:
 				dictionary[word] = count_words
 				count_words += 1
-			invertedIndex[dictionary[word]][ID][cur_type] += 1
+			invertedIndex[dictionary[word]][cur_type][ID] += 1
 def reg_word(word):
+	word = re.sub(r"([\n\t ]) *", r" ", word)
 	word = regSym.sub(' ', word)
 	word = regEx.sub(' ', word)
 	return word
@@ -57,7 +50,6 @@ def parse_sentence(word, ID, title, text):
 	elif text:
 		# finding categories
 		categories = re.findall(r'\[\[category:(.*?)\]\]', word, flags=re.MULTILINE)
-		word = regCateg.sub('',word)
 		categories = ' '.join(categories)
 		categories = reg_word(categories)
 		categories = tokenizer(categories)
@@ -65,7 +57,6 @@ def parse_sentence(word, ID, title, text):
 		
 		# finding references
 		references = re.findall(r'== ?references ?==(.*?)==', word, flags=re.DOTALL)
-		word = regRef.sub('',word)
 		references = ' '.join(references)
 		references = reg_word(references)
 		references = tokenizer(references)
@@ -73,7 +64,6 @@ def parse_sentence(word, ID, title, text):
 		
 		# content in infobox
 		infobox = re.findall(r'{{infobox(.*?)}}', word, flags=re.DOTALL)
-		word = regInfo.sub('',word)
 		infobox = ' '.join(infobox)
 		infobox = reg_word(infobox)
 		infobox = tokenizer(infobox)
@@ -81,6 +71,7 @@ def parse_sentence(word, ID, title, text):
 		
 		# body of content
 		word = reg_word(word)
+		# words = nlp(word)
 		words = tokenizer(word)
 		addToIndex(words, ID, 'b')
 class WikipediaHandler(ContentHandler):
@@ -122,24 +113,17 @@ class WikipediaHandler(ContentHandler):
 	def characters(self,content):
 		self.buffer = self.buffer + content
 start = time.time()
-parse("test_data.xml", WikipediaHandler())
-# for key,val in sorted(invertedIndex.items()):
-# 	for k,v in sorted(val.items()):
-# 		for k1,v1 in v.items():
-# 			print(key,k,k1,v1)
-# stores the 
+print(start)
+parse("enwiki-latest-pages-articles26.xml-p42567204p42663461", WikipediaHandler())
 fptr1 = open("word_hash.txt","a+")
 fptr = open('indexes/1.txt',"w+")
-# dictionary[word]@ID:field#freq,
+# dictionary[word]@field:docid-freq,
 for word, list1 in sorted(invertedIndex.items()):
-	output = str(word) + "@"
-	for ID, list2 in sorted(list1.items()):
-		output += str(ID) + ":"
-		for field,freq in list2.items():
-			output = output + str(field) + "-" + str(freq) + "#"
-	output += ","
-	output += "\n"
-	fptr.write(output)
+	for field, list2 in sorted(list1.items()):
+		output = str(word) + "@" + str(field) + ":"
+		for ID,freq in list2.items():
+			output += (str(ID) + '-' + str(freq) + ',')
+		fptr.write(output + '\n')
 fptr.close()
 invertedIndex.clear()
 for word in dictionary:

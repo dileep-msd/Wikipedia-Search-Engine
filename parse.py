@@ -5,6 +5,12 @@ from spacy.lang.en import English
 import time
 import spacy
 from Stemmer import Stemmer
+import sys
+import os
+# dump = sys.argv[1]
+indexFolder = 'indexes'
+if not os.path.exists(indexFolder):
+    os.makedirs(indexFolder)
 
 nlp = English()
 tokenizer = spacy.tokenizer.Tokenizer(nlp.vocab)
@@ -13,7 +19,7 @@ tokenizer = spacy.tokenizer.Tokenizer(nlp.vocab)
 invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
 dictionary = {}
 count_words = 1
-docTitle = open("docTitle.txt","w") 
+docTitle = open(indexFolder + "/docTitle.txt","w") 
 
 # porter stemmer
 ps = Stemmer("porter")
@@ -113,10 +119,9 @@ class WikipediaHandler(ContentHandler):
 	def characters(self,content):
 		self.buffer = self.buffer + content
 start = time.time()
-print(start)
 parse("enwiki-latest-pages-articles26.xml-p42567204p42663461", WikipediaHandler())
-fptr1 = open("word_hash.txt","a+")
-fptr = open('indexes/1.txt',"w+")
+fptr1 = open(indexFolder + "/word_hash.txt","a+")
+fptr = open(indexFolder + '/1.txt',"w+")
 # dictionary[word]@field:docid-freq,
 for word, list1 in sorted(invertedIndex.items()):
 	for field, list2 in sorted(list1.items()):
@@ -130,4 +135,3 @@ for word in dictionary:
 	output = word + '#' + str(dictionary[word]) + '\n'
 	fptr1.write(output)
 fptr1.close()
-print(time.time()-start)

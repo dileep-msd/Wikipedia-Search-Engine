@@ -28,9 +28,7 @@ wordh = open(indexFolder+"/word_hash.txt","r")
 docTitleMapping = []
 wordHash = []
 
-
-
-
+	
 # porter stemmer
 ps = Stemmer("porter")
 
@@ -98,23 +96,43 @@ def search(query):
 	result_count = 0
 	freq = sorted(freq.items() , reverse=True, key=lambda x: x[1])
 	for x,y in freq:
-		if len(query) - intersect[x] > 1:
+		if len(query) - intersect[x] != 0:
 			continue
 		result_count += 1
 		outputWrite.write(docTitleMapping[x])
 		if result_count == 10:
 			break
+	cur_lim = 1
+	while result_count < 5 and cur_lim < len(query):
+		for x,y in freq:
+			if len(query) - intersect[x] != cur_lim:
+				continue
+			result_count += 1
+			outputWrite.write(docTitleMapping[x])
+			if result_count == 10:
+				break
+		cur_lim += 1
 	outputWrite.write('\n')
 printToFileLength = 0
 def printToFile(freq, intersect):
 	result_count = 0
 	for x,y in freq:
-		if printToFileLength - intersect[x] > 2:
+		if printToFileLength - intersect[x] > 1:
 			continue
 		result_count += 1
 		outputWrite.write(docTitleMapping[x])
 		if result_count == 10:
 			break
+	cur_lim = 2
+	while result_count < 5 and cur_lim < printToFileLength:
+		for x,y in freq:
+			if printToFileLength - intersect[x] != cur_lim:
+				continue
+			result_count += 1
+			outputWrite.write(docTitleMapping[x])
+			if result_count == 10:
+				break
+		cur_lim += 1
 	outputWrite.write('\n')
 def fieldQueryHelper(query, cur_type, docs, printFlag, freq, intersect):
 	new_docs = []
@@ -154,10 +172,6 @@ def fieldQueryHelper(query, cur_type, docs, printFlag, freq, intersect):
 					intersect[x] += 1
 					flag[x] = 1
 			flag.clear()
-		# if len(freq) == 0:
-		# 	# if printFlag == 1:
-		# 		# printToFile()
-		# 	return docs
 	if printFlag == 1:
 		freq = sorted(freq.items() , reverse=True, key=lambda x: x[1])
 		printToFile(freq, intersect)
@@ -171,8 +185,13 @@ def fieldQueryHelper(query, cur_type, docs, printFlag, freq, intersect):
 def parse_field(query):
 	split = query.split(' ')
 	parsed = {}
+	prev = '1'
 	for data in split:
 		cur_split = data.split(':')
+		if len(cur_split) < 2:
+			parsed[prev] = parsed[prev] + ' ' + 	cur_split[0]
+			continue
+		prev = cur_split[0][0]
 		parsed[cur_split[0][0]] = cur_split[1]
 	return parsed	
 def fieldQuery(query):

@@ -68,7 +68,7 @@ def process(query):
 	words = tokenizer(query)
 	modified_query = []
 	for word in words:
-		if len(word) >= 3 and not nlp.vocab[word.text].is_stop:
+		if len(word) >= 2 and not nlp.vocab[word.text].is_stop:
 			word = ps.stemWord(word.text)
 			if word not in wordHash:
 				continue
@@ -82,7 +82,13 @@ def search(query):
 	flag = defaultdict(lambda:0)
 	for q in query:
 		for field in fields:
-			docFreq = invertedIndex[q][field]
+			check = invertedIndex.get(q, "None")
+			if check == "None":
+				continue
+			check = check.get(field, "None")
+			if check == "None":
+				continue
+			docFreq = check
 			for x,y in docFreq.items():
 				freq[x] += y
 				if flag[x] == 0:
@@ -99,25 +105,32 @@ def search(query):
 		if result_count == 10:
 			break
 	outputWrite.write('\n')
-def printToFile(freq, intersect, length):
+printToFileLength = 0
+def printToFile(freq, intersect):
 	result_count = 0
 	for x,y in freq:
-		if length - intersect[x] > 1:
+		if printToFileLength - intersect[x] > 2:
 			continue
 		result_count += 1
 		outputWrite.write(docTitleMapping[x])
 		if result_count == 10:
 			break
 	outputWrite.write('\n')
-def fieldQueryHelper(query, cur_type, docs, printFlag):
+def fieldQueryHelper(query, cur_type, docs, printFlag, freq, intersect):
 	new_docs = []
 	query = process(query)
-	freq = defaultdict(lambda:0)
-	intersect = defaultdict(lambda:0)
+	global printToFileLength
+	printToFileLength += len(query)
 	flag = defaultdict(lambda:0)
 	if len(docs) == 0:
 		for q in query:
-			docFreq = invertedIndex[q][cur_type]
+			check = invertedIndex.get(q, "None")
+			if check == "None":
+				continue
+			check = check.get(cur_type, "None")
+			if check == "None":
+				continue
+			docFreq = check
 			for x,y in docFreq.items():
 				freq[x] += y
 				if flag[x] == 0:
@@ -127,14 +140,27 @@ def fieldQueryHelper(query, cur_type, docs, printFlag):
 	else:
 		for q in query:
 			for x in docs:
-				freq[x] += invertedIndex[q][cur_type][x]
+				check = invertedIndex.get(q, "None")
+				if check == "None":
+					continue
+				check = check.get(cur_type, "None")
+				if check == "None":
+					continue
+				check = check.get(x, "None")
+				if check == "None":
+					continue
+				freq[x] += check
 				if flag[x] == 0:
 					intersect[x] += 1
 					flag[x] = 1
 			flag.clear()
+		# if len(freq) == 0:
+		# 	# if printFlag == 1:
+		# 		# printToFile()
+		# 	return docs
 	if printFlag == 1:
 		freq = sorted(freq.items() , reverse=True, key=lambda x: x[1])
-		printToFile(freq, intersect, len(query))
+		printToFile(freq, intersect)
 	else:
 		freq = sorted(freq.items() , reverse=True, key=lambda x: x[1])
 		for x,y in freq:
@@ -151,23 +177,25 @@ def parse_field(query):
 	return parsed	
 def fieldQuery(query):
 	size = len(query)
+	printToFileLength = 0
 	printFlag = 0
+	freq = defaultdict(lambda:0)
+	intersect = defaultdict(lambda:0)
 	for cur_type in query:
 		size -= 1
 		if size == -1:
 			printFlag = 1
-		docs = fieldQueryHelper(query[cur_type], cur_type, [], printFlag)
+		docs = fieldQueryHelper(query[cur_type], cur_type, [], printFlag, freq, intersect)
 		break
 	for cur_type in query:
 		size -= 1
 		if size == -1:
 			printFlag = 1
-		docs = fieldQueryHelper(query[cur_type], cur_type, docs, printFlag)
+		docs = fieldQueryHelper(query[cur_type], cur_type, docs, printFlag, freq, intersect)
 def read_file(testfile):
     with open(testfile, 'r') as file:
         queries = file.readlines()
     return queries
-start = time.time()
 init()
 queries = read_file(testFile)
 for query in queries:
@@ -176,4 +204,3 @@ for query in queries:
 	else:
 		field = parse_field(query)
 		fieldQuery(field)
-print(time.time()-start)

@@ -7,8 +7,8 @@ import spacy
 from Stemmer import Stemmer
 import sys
 import os
-# dump = sys.argv[1]
-indexFolder = 'indexes'
+dump = sys.argv[1]
+indexFolder = sys.argv[2]
 if not os.path.exists(indexFolder):
     os.makedirs(indexFolder)
 
@@ -33,9 +33,9 @@ regRef = re.compile(r'== ?references ?==(.*?)==', re.DOTALL)
 def addToIndex(words, ID, cur_type):
 	global count_words
 	for word in words:
-		if len(word) >= 3 and not nlp.vocab[word.text].is_stop:
+		if len(word) >= 2 and not nlp.vocab[word.text].is_stop:
 			word = ps.stemWord(word.text)
-			if len(word) < 3:
+			if len(word) < 2:
 				continue
 			if word not in dictionary:
 				dictionary[word] = count_words
@@ -119,14 +119,17 @@ class WikipediaHandler(ContentHandler):
 	def characters(self,content):
 		self.buffer = self.buffer + content
 start = time.time()
-parse("enwiki-latest-pages-articles26.xml-p42567204p42663461", WikipediaHandler())
+parse(dump, WikipediaHandler())
 fptr1 = open(indexFolder + "/word_hash.txt","a+")
 fptr = open(indexFolder + '/1.txt',"w+")
 # dictionary[word]@field:docid-freq,
+dictList = list(dictionary)
 for word, list1 in sorted(invertedIndex.items()):
 	for field, list2 in sorted(list1.items()):
 		output = str(word) + "@" + str(field) + ":"
 		for ID,freq in list2.items():
+			if freq < 50 and len(dictList[word-1]) <= 2:
+				continue
 			output += (str(ID) + '-' + str(freq) + ',')
 		fptr.write(output + '\n')
 fptr.close()

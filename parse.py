@@ -22,7 +22,7 @@ invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
 dictionary = {}
 count_words = 1
 docTitle = open(indexFolder + "/docTitle.txt","w") 
-limit = 5000
+limit = 10000
 lastFile = 0
 
 # porter stemmer

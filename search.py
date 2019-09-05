@@ -5,25 +5,27 @@ import time
 import spacy
 from Stemmer import Stemmer
 import sys
+from bisect import bisect
 
-dump = sys.argv[1]
-indexFolder = sys.argv[2]
-
+# dump = sys.argv[1]
+# indexFolder = sys.argv[2]
+indexFolder = "./indexes"
+secondaryIndex = defaultdict(lambda:0)
 
 nlp = English()
 tokenizer = nlp.Defaults.create_tokenizer(nlp)
 
-indexFolder = sys.argv[1]
-testFile = sys.argv[2]
-outputFile = sys.argv[3]
-outputWrite = open(outputFile,"w+") 
+# indexFolder = sys.argv[1]
+# testFile = sys.argv[2]
+# outputFile = sys.argv[3]
+# outputWrite = open(outputFile,"w+") 
 
 
 invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
 dictionary = {}
 count_words = 1
 docTitle = open(indexFolder + "/docTitle.txt","r") 
-index = open(indexFolder + "/1.txt","r") 
+secondary = open(indexFolder + "/secondary.txt","r") 
 wordh = open(indexFolder+"/word_hash.txt","r") 
 docTitleMapping = []
 wordHash = []
@@ -48,18 +50,18 @@ def init():
 	for line in wordh:
 		wordHash.append(line.split('#')[0])
 	co = 0
-	for line in index:
+	for line in secondary:
 		split = line.split('@')
-		word = int(split[0])
-		split = split[1].split(':')
-		field = split[0]
-		split = split[1].split(',')
-		for x in split:
-			try:
-				docfreq = x.split('-')
-				invertedIndex[word][field][int(docfreq[0])] += int(docfreq[1])
-			except:
-				pass
+		secondaryIndex[int(split[0])] = split[1][:-1]
+		# split = split[1].split(':')
+		# field = split[0]
+		# split = split[1].split(',')
+		# for x in split:
+		# 	try:
+		# 		docfreq = x.split('-')
+		# 		invertedIndex[word][field][int(docfreq[0])] += int(docfreq[1])
+		# 	except:
+		# 		pass
 def process(query):
 	query = query.lower()
 	query = reg_word(query)
@@ -78,41 +80,48 @@ def search(query):
 	freq = defaultdict(lambda:0)
 	intersect = defaultdict(lambda:0)
 	flag = defaultdict(lambda:0)
+	# print(query)
 	for q in query:
-		for field in fields:
-			check = invertedIndex.get(q, "None")
-			if check == "None":
-				continue
-			check = check.get(field, "None")
-			if check == "None":
-				continue
-			docFreq = check
-			for x,y in docFreq.items():
-				freq[x] += y
-				if flag[x] == 0:
-					intersect[x] += 1
-					flag[x] = 1
-		flag.clear()
-	result_count = 0
-	freq = sorted(freq.items() , reverse=True, key=lambda x: x[1])
-	for x,y in freq:
-		if len(query) - intersect[x] != 0:
-			continue
-		result_count += 1
-		outputWrite.write(docTitleMapping[x])
-		if result_count == 10:
-			break
-	cur_lim = 1
-	while result_count < 5 and cur_lim < len(query):
-		for x,y in freq:
-			if len(query) - intersect[x] != cur_lim:
-				continue
-			result_count += 1
-			outputWrite.write(docTitleMapping[x])
-			if result_count == 10:
-				break
-		cur_lim += 1
-	outputWrite.write('\n')
+		len(secondaryIndex)
+		# ptr = bisect(secondaryIndex.items(), q)
+	# print(secondaryIndex)
+	# for q in query:
+	# 	for field in fields:
+	# 		check = invertedIndex.get(q, "None")
+	# 		if check == "None":
+	# 			continue
+	# 		check = check.get(field, "None")
+	# 		if check == "None":
+	# 			continue
+	# 		docFreq = check
+	# 		for x,y in docFreq.items():
+	# 			freq[x] += y
+	# 			if flag[x] == 0:
+	# 				intersect[x] += 1
+	# 				flag[x] = 1
+	# 	flag.clear()
+	# result_count = 0
+	# freq = sorted(freq.items() , reverse=True, key=lambda x: x[1])
+	# for x,y in freq:
+	# 	if len(query) - intersect[x] != 0:
+	# 		continue
+	# 	result_count += 1
+	# 	print(docTitleMapping[x])
+	# 	# outputWrite.write(docTitleMapping[x])
+	# 	if result_count == 10:
+	# 		break
+	# cur_lim = 1
+	# while result_count < 5 and cur_lim < len(query):
+	# 	for x,y in freq:
+	# 		if len(query) - intersect[x] != cur_lim:
+	# 			continue
+	# 		result_count += 1
+	# 		print(docTitleMapping[x])
+	# 		# outputWrite.write(docTitleMapping[x])
+	# 		if result_count == 10:
+	# 			break
+	# 	cur_lim += 1
+	# outputWrite.write('\n')
 printToFileLength = 0
 def printToFile(freq, intersect):
 	result_count = 0
@@ -120,7 +129,8 @@ def printToFile(freq, intersect):
 		if printToFileLength - intersect[x] > 1:
 			continue
 		result_count += 1
-		outputWrite.write(docTitleMapping[x])
+		print(docTitleMapping[x])
+		# outputWrite.write(docTitleMapping[x])
 		if result_count == 10:
 			break
 	cur_lim = 2
@@ -129,11 +139,12 @@ def printToFile(freq, intersect):
 			if printToFileLength - intersect[x] != cur_lim:
 				continue
 			result_count += 1
-			outputWrite.write(docTitleMapping[x])
+			print(docTitleMapping[x])
+			# outputWrite.write(docTitleMapping[x])
 			if result_count == 10:
 				break
 		cur_lim += 1
-	outputWrite.write('\n')
+	# outputWrite.write('\n')
 def fieldQueryHelper(query, cur_type, docs, printFlag, freq, intersect):
 	new_docs = []
 	query = process(query)
@@ -211,15 +222,18 @@ def fieldQuery(query):
 		if size == -1:
 			printFlag = 1
 		docs = fieldQueryHelper(query[cur_type], cur_type, docs, printFlag, freq, intersect)
-def read_file(testfile):
-    with open(testfile, 'r') as file:
-        queries = file.readlines()
-    return queries
+# def read_file(testfile):
+#     with open(testfile, 'r') as file:
+#         queries = file.readlines()
+#     return queries
 init()
-queries = read_file(testFile)
-for query in queries:
-	if ':' not in query:
-		search(query)
-	else:
-		field = parse_field(query)
-		fieldQuery(field)
+# secondaryIndex = list(secondaryIndex)
+query = "new york mayor"
+search(query)
+# queries = read_file(testFile)
+# for query in queries:
+# 	if ':' not in query:
+# 		search(query)
+# 	else:
+# 		field = parse_field(query)
+# 		fieldQuery(field)

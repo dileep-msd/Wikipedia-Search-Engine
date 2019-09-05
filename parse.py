@@ -11,6 +11,8 @@ dump = sys.argv[1]
 indexFolder = sys.argv[2]
 if not os.path.exists(indexFolder):
     os.makedirs(indexFolder)
+if not os.path.exists(indexFolder + "/Harsh_Index"):
+    os.makedirs(indexFolder + "/Harsh_Index")
 
 nlp = English()
 tokenizer = spacy.tokenizer.Tokenizer(nlp.vocab)
@@ -20,6 +22,8 @@ invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
 dictionary = {}
 count_words = 1
 docTitle = open(indexFolder + "/docTitle.txt","w") 
+limit = 5000
+lastFile = 0
 
 # porter stemmer
 ps = Stemmer("porter")
@@ -80,6 +84,22 @@ def parse_sentence(word, ID, title, text):
 		# words = nlp(word)
 		words = tokenizer(word)
 		addToIndex(words, ID, 'b')
+		if ID % limit == 0 and ID != 0:
+			global lastFile
+			lastFile = int(ID/limit)
+			fptr = open(indexFolder + "/Harsh_Index/" + str(int(ID/limit)) + '.txt',"w+")
+			# dictionary[word]@field:docid-freq,
+			dictList = list(dictionary)
+			for word, list1 in sorted(invertedIndex.items()):
+				for field, list2 in sorted(list1.items()):
+					output = str(word) + "@" + str(field) + ":"
+					for ID,freq in list2.items():
+						if freq < 50 and len(dictList[word-1]) <= 2:
+							continue
+						output += (str(ID) + '-' + str(freq) + ',')
+					fptr.write(output + "\n")
+			fptr.close()
+			invertedIndex.clear()
 class WikipediaHandler(ContentHandler):
 	def __init__(self):
 		self.buffer = ""
@@ -120,21 +140,23 @@ class WikipediaHandler(ContentHandler):
 		self.buffer = self.buffer + content
 start = time.time()
 parse(dump, WikipediaHandler())
+
+if len(invertedIndex) > 0:
+	fptr = open(indexFolder + "/Harsh_Index/" + str(lastFile + 1) + '.txt',"w+")
+	# dictionary[word]@field:docid-freq,
+	dictList = list(dictionary)
+	for word, list1 in sorted(invertedIndex.items()):
+		for field, list2 in sorted(list1.items()):
+			output = str(word) + "@" + str(field) + ":"
+			for ID,freq in list2.items():
+				if freq < 50 and len(dictList[word-1]) <= 2:
+					continue
+				output += (str(ID) + '-' + str(freq) + ',')
+			fptr.write(output + "\n")
+	fptr.close()
+	invertedIndex.clear()
+
 fptr1 = open(indexFolder + "/word_hash.txt","a+")
-fptr = open(indexFolder + '/1.txt',"w+")
-# dictionary[word]@field:docid-freq,
-dictList = list(dictionary)
-for word, list1 in sorted(invertedIndex.items()):
-	for field, list2 in sorted(list1.items()):
-		output = str(word) + "@" + str(field) + ":"
-		for ID,freq in list2.items():
-			if freq < 50 and len(dictList[word-1]) <= 2:
-				continue
-			output += (str(ID) + '-' + str(freq) + ',')
-		fptr.write(output + '\n')
-fptr.close()
-invertedIndex.clear()
 for word in dictionary:
-	output = word + '#' + str(dictionary[word]) + '\n'
-	fptr1.write(output)
+	fptr1.write(word + '#' + str(dictionary[word]) + '\n')
 fptr1.close()

@@ -7,6 +7,8 @@ import spacy
 from Stemmer import Stemmer
 import sys
 import os
+import math
+
 dump = sys.argv[1]
 indexFolder = sys.argv[2]
 if not os.path.exists(indexFolder):
@@ -20,10 +22,14 @@ tokenizer = spacy.tokenizer.Tokenizer(nlp.vocab)
 # invertedIndex = defaultdict(lambda:defaultdict(int))
 invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
 dictionary = {}
+# Stores the number of docs containing the word
+# Helps in computing idf
+wordDoc = defaultdict(lambda:0)
 count_words = 1
 docTitle = open(indexFolder + "/docTitle.txt","w") 
 limit = 10000
 lastFile = 0
+totalDocs = 0
 
 # porter stemmer
 ps = Stemmer("porter")
@@ -45,6 +51,8 @@ def addToIndex(words, ID, cur_type):
 				dictionary[word] = count_words
 				count_words += 1
 			invertedIndex[dictionary[word]][cur_type][ID] += 1
+			if invertedIndex[dictionary[word]][cur_type][ID] == 1:
+				wordDoc[dictionary[word]] += 1
 def reg_word(word):
 	word = re.sub(r"([\n\t ]) *", r" ", word)
 	word = regSym.sub(' ', word)
@@ -114,7 +122,9 @@ class WikipediaHandler(ContentHandler):
 			self.buffer = ""
 			self.titleFlag = 1
 		if tag == "page":
+			global totalDocs
 			self.ID += 1
+			totalDocs += 1
 		if tag == "text":
 			self.buffer = ""
 			self.textFlag = 1
@@ -160,3 +170,8 @@ fptr1 = open(indexFolder + "/word_hash.txt","a+")
 for word in dictionary:
 	fptr1.write(word + '#' + str(dictionary[word]) + '\n')
 fptr1.close()
+
+fptr2 = open(indexFolder + "/idf.txt","a+")
+for word in wordDoc:
+	fptr2.write(str(word) + '#' + str(math.log10(totalDocs/wordDoc[word])) + '\n')
+fptr2.close()

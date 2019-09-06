@@ -5,12 +5,15 @@ import time
 import spacy
 from Stemmer import Stemmer
 import sys
-from bisect import bisect
+import math
+import bisect
 
 # dump = sys.argv[1]
 # indexFolder = sys.argv[2]
 indexFolder = "./indexes"
 secondaryIndex = defaultdict(lambda:0)
+secondaryIndexIndices = []
+totalDocs = 0
 
 nlp = English()
 tokenizer = nlp.Defaults.create_tokenizer(nlp)
@@ -27,8 +30,12 @@ count_words = 1
 docTitle = open(indexFolder + "/docTitle.txt","r") 
 secondary = open(indexFolder + "/secondary.txt","r") 
 wordh = open(indexFolder+"/word_hash.txt","r") 
+idfVal = open(indexFolder+"/idf.txt","r") 
 docTitleMapping = []
 wordHash = []
+idf = []
+weights = {'t':1000, 'b':1, "r":1, "c":1, "i":1}
+
 
 	
 # porter stemmer
@@ -43,25 +50,22 @@ def reg_word(word):
 	word = regEx.sub(' ', word)
 	return word
 def init():
+	global secondaryIndexIndices, totalDocs
 	docTitleMapping.append("No result found")
 	for line in docTitle:
 		docTitleMapping.append(line.split("@")[1])
+		totalDocs += 1
 	wordHash.append("No record")
 	for line in wordh:
 		wordHash.append(line.split('#')[0])
+	idf.append("No record")
+	for line in idfVal:
+		idf.append(float(line.split('#')[1]))
 	co = 0
 	for line in secondary:
 		split = line.split('@')
 		secondaryIndex[int(split[0])] = split[1][:-1]
-		# split = split[1].split(':')
-		# field = split[0]
-		# split = split[1].split(',')
-		# for x in split:
-		# 	try:
-		# 		docfreq = x.split('-')
-		# 		invertedIndex[word][field][int(docfreq[0])] += int(docfreq[1])
-		# 	except:
-		# 		pass
+	secondaryIndexIndices = list(secondaryIndex)
 def process(query):
 	query = query.lower()
 	query = reg_word(query)
@@ -80,50 +84,40 @@ def search(query):
 	freq = defaultdict(lambda:0)
 	intersect = defaultdict(lambda:0)
 	flag = defaultdict(lambda:0)
-	# print(query)
+	queryFreq = defaultdict(lambda:0)
 	for q in query:
-		len(secondaryIndex)
-		# ptr = bisect(secondaryIndex.items(), q)
-	# print(secondaryIndex)
-	# for q in query:
-	# 	for field in fields:
-	# 		check = invertedIndex.get(q, "None")
-	# 		if check == "None":
-	# 			continue
-	# 		check = check.get(field, "None")
-	# 		if check == "None":
-	# 			continue
-	# 		docFreq = check
-	# 		for x,y in docFreq.items():
-	# 			freq[x] += y
-	# 			if flag[x] == 0:
-	# 				intersect[x] += 1
-	# 				flag[x] = 1
-	# 	flag.clear()
-	# result_count = 0
-	# freq = sorted(freq.items() , reverse=True, key=lambda x: x[1])
-	# for x,y in freq:
-	# 	if len(query) - intersect[x] != 0:
-	# 		continue
-	# 	result_count += 1
-	# 	print(docTitleMapping[x])
-	# 	# outputWrite.write(docTitleMapping[x])
-	# 	if result_count == 10:
-	# 		break
-	# cur_lim = 1
-	# while result_count < 5 and cur_lim < len(query):
-	# 	for x,y in freq:
-	# 		if len(query) - intersect[x] != cur_lim:
-	# 			continue
-	# 		result_count += 1
-	# 		print(docTitleMapping[x])
-	# 		# outputWrite.write(docTitleMapping[x])
-	# 		if result_count == 10:
-	# 			break
-	# 	cur_lim += 1
-	# outputWrite.write('\n')
+		ptr = bisect.bisect_left(secondaryIndexIndices, q)
+		if secondaryIndexIndices[ptr] != q:
+			continue
+		primaryFile = open(indexFolder + "/primary/primary" + str(secondaryIndex[ptr]) + ".txt")
+		doc = primaryFile.read()
+		start = doc.find(str(q) + "@")
+		wordDocCount = 0
+		curType = 'x'
+		while start != -1:
+			end = doc.find("\n", start + 1)
+			line = doc[start:end]
+			line = line.split("@")[1]
+			line = line.split(":")
+			curType = line[0]
+			line = line[1]
+			line = line.split(",")
+			for x in line:
+				cur_split = x.split("-")
+				if len(cur_split) != 2:
+					continue
+				wordDocCount += 1
+				queryFreq[cur_split[0]] += math.log10(int(cur_split[1]) * weights[curType]) * idf[q]	
+			start = doc.find(str(q) + "@", end + 1)
+	queryFreq = sorted(queryFreq.items() , reverse=True, key=lambda x: x[1])
+	co = 0
+	for x in queryFreq:
+		co += 1
+		print(docTitleMapping[int(x[0])], end='')
+		if co > 10:
+			break
 printToFileLength = 0
-def printToFile(freq, intersect):
+def printToFile(freq):
 	result_count = 0
 	for x,y in freq:
 		if printToFileLength - intersect[x] > 1:
@@ -228,7 +222,7 @@ def fieldQuery(query):
 #     return queries
 init()
 # secondaryIndex = list(secondaryIndex)
-query = "new york mayor"
+query = "War"
 search(query)
 # queries = read_file(testFile)
 # for query in queries:

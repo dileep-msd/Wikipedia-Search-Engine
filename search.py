@@ -34,7 +34,7 @@ idfVal = open(indexFolder+"/idf.txt","r")
 docTitleMapping = []
 wordHash = []
 idf = []
-weights = {'t':1000, 'b':1, "r":1, "c":1, "i":1}
+weights = {'t':1000, 'b':1, "r":10, "c":10, "i":10}
 
 
 	
@@ -79,6 +79,17 @@ def process(query):
 			modified_query.append(wordHash.index(word))
 	return modified_query
 fields = ['c', 'r', 'i', 'b', 't']
+printToFileLength = 0
+def printToFile(freq):
+	result_count = 0
+	for x, y in freq:
+		result_count += 1
+		# print(x, y)
+		print(docTitleMapping[int(x)], end='')
+		# print(freq[x])
+		# outputWrite.write(docTitleMapping[x])
+		if result_count == 10:
+			break
 def search(query):
 	query = process(query)
 	freq = defaultdict(lambda:0)
@@ -110,83 +121,37 @@ def search(query):
 				queryFreq[cur_split[0]] += math.log10(int(cur_split[1]) * weights[curType]) * idf[q]	
 			start = doc.find(str(q) + "@", end + 1)
 	queryFreq = sorted(queryFreq.items() , reverse=True, key=lambda x: x[1])
-	co = 0
-	for x in queryFreq:
-		co += 1
-		print(docTitleMapping[int(x[0])], end='')
-		if co > 10:
-			break
-printToFileLength = 0
-def printToFile(freq):
-	result_count = 0
-	for x,y in freq:
-		if printToFileLength - intersect[x] > 1:
-			continue
-		result_count += 1
-		print(docTitleMapping[x])
-		# outputWrite.write(docTitleMapping[x])
-		if result_count == 10:
-			break
-	cur_lim = 2
-	while result_count < 5 and cur_lim < printToFileLength:
-		for x,y in freq:
-			if printToFileLength - intersect[x] != cur_lim:
-				continue
-			result_count += 1
-			print(docTitleMapping[x])
-			# outputWrite.write(docTitleMapping[x])
-			if result_count == 10:
-				break
-		cur_lim += 1
-	# outputWrite.write('\n')
-def fieldQueryHelper(query, cur_type, docs, printFlag, freq, intersect):
-	new_docs = []
+	printToFile(queryFreq)
+
+def fieldQueryHelper(query, cur_type, relevance, factor, printFlag):
 	query = process(query)
-	global printToFileLength
-	printToFileLength += len(query)
-	flag = defaultdict(lambda:0)
-	if len(docs) == 0:
-		for q in query:
-			check = invertedIndex.get(q, "None")
-			if check == "None":
+	for q in query:
+		ptr = bisect.bisect_left(secondaryIndexIndices, q)
+		if secondaryIndexIndices[ptr] != q:
+			continue
+		primaryFile = open(indexFolder + "/primary/primary" + str(secondaryIndex[ptr]) + ".txt")
+		doc = primaryFile.read()
+		start = doc.find(str(q) + "@" + cur_type + ":")
+		if start == -1:
+			continue
+		end = doc.find("\n", start + 1)
+		line = doc[start:end]
+		line = line.split("@")[1]
+		line = line.split(":")[1]
+		line = line.split(",")
+		for x in line:
+			cur_split = x.split("-")
+			if len(cur_split) != 2:
 				continue
-			check = check.get(cur_type, "None")
-			if check == "None":
-				continue
-			docFreq = check
-			for x,y in docFreq.items():
-				freq[x] += y
-				if flag[x] == 0:
-					intersect[x] += 1
-					flag[x] = 1
-			flag.clear()
-	else:
-		for q in query:
-			for x in docs:
-				check = invertedIndex.get(q, "None")
-				if check == "None":
-					continue
-				check = check.get(cur_type, "None")
-				if check == "None":
-					continue
-				check = check.get(x, "None")
-				if check == "None":
-					continue
-				freq[x] += check
-				if flag[x] == 0:
-					intersect[x] += 1
-					flag[x] = 1
-			flag.clear()
+			relevance[cur_split[0]] += math.log10(int(cur_split[1]) + 1) * idf[q]* factor[cur_split[0]] * weights[cur_type]
+			factor[cur_split[0]] *= 10
+			# print(docTitleMapping[int(cur_split[0])], end='')
+			# print(cur_split[1], cur_type,  math.log10(int(cur_split[1])+1) * idf[q])
 	if printFlag == 1:
-		freq = sorted(freq.items() , reverse=True, key=lambda x: x[1])
-		printToFile(freq, intersect)
+		relevance = sorted(relevance.items() , reverse=True, key=lambda x: x[1])
+		printToFile(relevance)
 	else:
-		freq = sorted(freq.items() , reverse=True, key=lambda x: x[1])
-		for x,y in freq:
-			if len(query) - intersect[x] > 1:
-				continue
-			new_docs.append(x)
-		return new_docs
+		return relevance
 def parse_field(query):
 	split = query.split(' ')
 	parsed = {}
@@ -205,25 +170,21 @@ def fieldQuery(query):
 	printFlag = 0
 	freq = defaultdict(lambda:0)
 	intersect = defaultdict(lambda:0)
+	relevance = defaultdict(lambda:0)
+	factor = defaultdict(lambda:1)
 	for cur_type in query:
 		size -= 1
-		if size == -1:
+		if size == 0:
 			printFlag = 1
-		docs = fieldQueryHelper(query[cur_type], cur_type, [], printFlag, freq, intersect)
-		break
-	for cur_type in query:
-		size -= 1
-		if size == -1:
-			printFlag = 1
-		docs = fieldQueryHelper(query[cur_type], cur_type, docs, printFlag, freq, intersect)
+		relevance = fieldQueryHelper(query[cur_type], cur_type, relevance, factor, printFlag)
 # def read_file(testfile):
 #     with open(testfile, 'r') as file:
 #         queries = file.readlines()
 #     return queries
 init()
-# secondaryIndex = list(secondaryIndex)
-query = "War"
-search(query)
+# query = "title:gandhi body:arjun infobox:gandhi category:gandhi ref:gandhi"
+# fieldQuery(parse_field(query))
+search("new york mayor")
 # queries = read_file(testFile)
 # for query in queries:
 # 	if ':' not in query:

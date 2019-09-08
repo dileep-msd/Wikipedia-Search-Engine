@@ -19,7 +19,6 @@ if not os.path.exists(indexFolder + "/Harsh_Index"):
 nlp = English()
 tokenizer = spacy.tokenizer.Tokenizer(nlp.vocab)
 
-# invertedIndex = defaultdict(lambda:defaultdict(int))
 invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
 dictionary = {}
 # Stores the number of docs containing the word

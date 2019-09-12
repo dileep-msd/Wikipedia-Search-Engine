@@ -28,9 +28,12 @@ dictionary = {}
 wordDoc = defaultdict(lambda:0)
 count_words = 1
 docFolder = indexFolder + "/docTitle"
+idfFolder = indexFolder + "/IDF"
 # docTitle = open(indexFolder + "/docTitle.txt","w") 
 if not os.path.exists(docFolder):
     os.makedirs(docFolder)
+if not os.path.exists(idfFolder):
+    os.makedirs(idfFolder)
 
 limit = 8000
 lastFile = 0
@@ -48,7 +51,7 @@ regRef = re.compile(r'== ?references ?==(.*?)==', re.DOTALL)
 def addToIndex(words, ID, cur_type):
 	global count_words
 	for word in words:
-		if len(word) >= 3 and not nlp.vocab[word.text].is_stop:
+		if len(word.text) >= 3 and not nlp.vocab[word.text].is_stop:
 			word = ps.stemWord(word.text)
 			if word not in dictionary:
 				dictionary[word] = count_words
@@ -105,8 +108,8 @@ def parse_sentence(word, ID, title, text):
 				for field, list2 in sorted(list1.items()):
 					output = str(word) + "@" + str(field) + ":"
 					for ID,freq in list2.items():
-						if freq < 50 and len(dictList[word-1]) <= 2:
-							continue
+						# if freq < 50 and len(dictList[word-1]) <= 2:
+							# continue
 						output += (str(ID) + '-' + str(freq) + ',')
 					fptr.write(output + "\n")
 			fptr.close()
@@ -165,8 +168,8 @@ if len(invertedIndex) > 0:
 		for field, list2 in sorted(list1.items()):
 			output = str(word) + "@" + str(field) + ":"
 			for ID,freq in list2.items():
-				if freq < 50 and len(dictList[word-1]) <= 2:
-					continue
+				# if freq < 50 and len(dictList[word-1]) <= 2:
+					# continue
 				output += (str(ID) + '-' + str(freq) + ',')
 			fptr.write(output + "\n")
 	fptr.close()
@@ -177,7 +180,7 @@ for word in dictionary:
 	fptr1.write(word + '#' + str(dictionary[word]) + '\n')
 fptr1.close()
 
-fptr2 = open(indexFolder + "/idf.txt","a+")
 for word in wordDoc:
-	fptr2.write(str(word) + '#' + str(math.log10(totalDocs/wordDoc[word])) + '\n')
-fptr2.close()
+	fptr2 = open(idfFolder + "/" + str(word) + ".txt","w+")
+	fptr2.write(str(math.log10(totalDocs/wordDoc[word])))
+	fptr2.close()

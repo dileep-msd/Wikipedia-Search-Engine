@@ -1,0 +1,1 @@
+Module:Location map/data/France

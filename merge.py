@@ -16,7 +16,7 @@ words = dict()
 invertedIndex = defaultdict(lambda:defaultdict(lambda:""))
 secondaryIndex = defaultdict(lambda:0)
 secondary = open(indexFolder + "/secondary.txt","w+") 
-limit = 10000
+limit = 8000
 indexFile = 0
 
 if not os.path.exists(indexFolder + "/primary"):
@@ -35,7 +35,7 @@ def writePrimary():
 	primary = open(indexFolder + "/primary/" + "primary" + str(indexFile) + ".txt" ,"w+") 
 	for word, dict1 in invertedIndex.items():
 		for curType, val in dict1.items():
-			primary.write(word + "@" + curType + ":" + val + '\n')
+			primary.write(str(word) + "@" + curType + ":" + val + '\n')
 			secondaryIndex[word] = indexFile
 	invertedIndex.clear()
 	primary.close()
@@ -45,8 +45,8 @@ for i in range(len(index)):
 	fptr[i] = open(index[i], "r")
 	line[i] = fptr[i].readline()
 	words[i] = line[i].split("@")
-	if [words[i][0], words[i][1][0]] not in heapObj:
-		heappush(heapObj, [words[i][0], words[i][1][0]])
+	if [int(words[i][0]), words[i][1][0]] not in heapObj:
+		heappush(heapObj, [int(words[i][0]), words[i][1][0]])
 done = [0] * (totalFiles)
 filesDone = 0
 primaryBufferSize = 0
@@ -62,7 +62,7 @@ while filesDone < totalFiles:
 		primaryBufferSize = 0
 	prevWord = cur[0]
 	for i in range(totalFiles):
-		if done[i] == 1 or words[i][0] != cur[0] or words[i][1][0] != cur[1]:
+		if done[i] == 1 or int(words[i][0]) != cur[0] or words[i][1][0] != cur[1]:
 			continue
 		primaryBufferSize += 1
 		invertedIndex[cur[0]][cur[1]] += (words[i][1].split(":")[1])
@@ -71,7 +71,7 @@ while filesDone < totalFiles:
 		if line[i]:
 			words[i] = line[i].split("@")
 			if [words[i][0], words[i][1][0]] not in heapObj:
-				heappush(heapObj, [words[i][0], words[i][1][0]])
+				heappush(heapObj, [int(words[i][0]), words[i][1][0]])
 		else:
 			filesDone += 1
 			fptr[i].close()

@@ -27,17 +27,13 @@ except:
 if indexFolder[-1] == '/':
 	indexFolder = indexFolder[:-1]
 
-invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
-dictionary = {}
 count_words = 1
 docFolder = indexFolder + "/docTitle/" 
+idfFolder = indexFolder + "/IDF"
 secondary = open(indexFolder + "/secondary.txt","r") 
 wordh = open(indexFolder+"/word_hash.txt","r") 
-idfVal = open(indexFolder+"/idf.txt","r") 
 wordHash = []
-idf = []
-weights = {'t':1000, 'b':1, "r":10, "c":10, "i":10}
-
+weights = {'t':1000, 'b':10, "r":10, "c":10, "i":10}
 
 	
 # porter stemmer
@@ -56,9 +52,6 @@ def init():
 	wordHash.append("No record")
 	for line in wordh:
 		wordHash.append(line.split('#')[0])
-	idf.append("No record")
-	for line in idfVal:
-		idf.append(float(line.split('#')[1]))
 	co = 0
 	for line in secondary:
 		split = line.split('@')
@@ -81,6 +74,7 @@ printToFileLength = 0
 def printToFile(freq):
 	if len(freq) == 0:
 		print("No result found")
+		print("")
 		return
 	result_count = 0
 	for x, y in freq:
@@ -90,6 +84,7 @@ def printToFile(freq):
 		# print(freq[x])
 		fptr = open(docFolder + x + ".txt", "r")
 		print(fptr.readline(), end = '')
+		fptr.close()
 		# outputWrite.write(fptr.readline())
 		# fptr.close()
 		if result_count == 10:
@@ -125,7 +120,11 @@ def search(query):
 					if len(cur_split) != 2:
 						continue
 					wordDocCount += 1
-					queryFreq[cur_split[0]] += math.log10(int(cur_split[1]) * weights[curType]) * idf[q]	
+					fptr = open(idfFolder + "/" + str(q) + ".txt", "r")
+					idfval = float(fptr.readline())
+					fptr.close()
+					queryFreq[cur_split[0]] += math.log10(float(cur_split[1]) * weights[curType]) * idfval
+					# print(math.log10(float(cur_split[1]) * weights[curType]) * idfval)	
 				start = doc.find(str(q) + "@", end + 1)
 		except:
 			pass
@@ -156,7 +155,10 @@ def fieldQueryHelper(query, cur_type, relevance, factor, printFlag):
 				cur_split = x.split("-")
 				if len(cur_split) != 2:
 					continue
-				relevance[cur_split[0]] += math.log10(int(cur_split[1]) + 1) * idf[q]* factor[cur_split[0]] * weights[cur_type]
+				fptr = open(idfFolder + "/" + str(q) + ".txt", "r")
+				idfval = float(fptr.readline())
+				fptr.close()
+				relevance[cur_split[0]] += math.log10(int(cur_split[1]) + 1) * idfval* factor[cur_split[0]] * weights[cur_type]
 				factor[cur_split[0]] *= 10
 		except:
 			pass
@@ -203,8 +205,13 @@ print("Preprocessing Done")
 # queries = read_file(testFile)
 while True:
 	query = input()
+	start_time = time.time()
 	if ':' not in query:
 		search(query)
 	else:
 		field = parse_field(query)
 		fieldQuery(field)
+	end_time = time.time()
+	t = float("{0:.4f}".format(end_time - start_time))
+	print("Time taken = ", t, "s")
+	print("")

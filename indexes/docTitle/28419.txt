@@ -1,0 +1,1 @@
+Reliable Autonomic Distributed Object Store

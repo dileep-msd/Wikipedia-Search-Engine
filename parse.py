@@ -11,6 +11,8 @@ import math
 
 dump = sys.argv[1]
 indexFolder = sys.argv[2]
+if indexFolder[-1] == '/':
+	indexFolder = indexFolder[:-1]
 if not os.path.exists(indexFolder):
     os.makedirs(indexFolder)
 if not os.path.exists(indexFolder + "/Harsh_Index"):
@@ -25,8 +27,12 @@ dictionary = {}
 # Helps in computing idf
 wordDoc = defaultdict(lambda:0)
 count_words = 1
-docTitle = open(indexFolder + "/docTitle.txt","w") 
-limit = 10000
+docFolder = indexFolder + "/docTitle"
+# docTitle = open(indexFolder + "/docTitle.txt","w") 
+if not os.path.exists(docFolder):
+    os.makedirs(docFolder)
+
+limit = 8000
 lastFile = 0
 totalDocs = 0
 
@@ -42,10 +48,8 @@ regRef = re.compile(r'== ?references ?==(.*?)==', re.DOTALL)
 def addToIndex(words, ID, cur_type):
 	global count_words
 	for word in words:
-		if len(word) >= 2 and not nlp.vocab[word.text].is_stop:
+		if len(word) >= 3 and not nlp.vocab[word.text].is_stop:
 			word = ps.stemWord(word.text)
-			if len(word) < 2:
-				continue
 			if word not in dictionary:
 				dictionary[word] = count_words
 				count_words += 1
@@ -132,7 +136,10 @@ class WikipediaHandler(ContentHandler):
 			self.idFlag = 1
 	def endElement(self, tag):
 		if self.titleFlag:
-			docTitle.write(str(self.ID) + "@" + self.buffer + "\n")
+			fptr = open(docFolder + "/" + str(self.ID) + ".txt","w+") 
+			# fptr = open(docTitle + "/self.")
+			fptr.write(self.buffer + "\n")
+			fptr.close()
 			parse_sentence(self.buffer, self.ID, 1, 0)
 			self.titleFlag = 0
 			self.title = self.buffer

@@ -7,31 +7,33 @@ from Stemmer import Stemmer
 import sys
 import math
 import bisect
+import sys
 
-# dump = sys.argv[1]
-# indexFolder = sys.argv[2]
-indexFolder = "./indexes"
 secondaryIndex = defaultdict(lambda:0)
 secondaryIndexIndices = []
-totalDocs = 0
 
 nlp = English()
 tokenizer = nlp.Defaults.create_tokenizer(nlp)
 
-# indexFolder = sys.argv[1]
+try:
+	indexFolder = sys.argv[1]
+except:
+	print("Unable to locate index folder")
+	sys.exit(0)
 # testFile = sys.argv[2]
-# outputFile = sys.argv[3]
+# outputFile = sys.argv[2]
 # outputWrite = open(outputFile,"w+") 
 
+if indexFolder[-1] == '/':
+	indexFolder = indexFolder[:-1]
 
 invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
 dictionary = {}
 count_words = 1
-docTitle = open(indexFolder + "/docTitle.txt","r") 
+docFolder = indexFolder + "/docTitle/" 
 secondary = open(indexFolder + "/secondary.txt","r") 
 wordh = open(indexFolder+"/word_hash.txt","r") 
 idfVal = open(indexFolder+"/idf.txt","r") 
-docTitleMapping = []
 wordHash = []
 idf = []
 weights = {'t':1000, 'b':1, "r":10, "c":10, "i":10}
@@ -50,11 +52,7 @@ def reg_word(word):
 	word = regEx.sub(' ', word)
 	return word
 def init():
-	global secondaryIndexIndices, totalDocs
-	docTitleMapping.append("No result found")
-	for line in docTitle:
-		docTitleMapping.append(line.split("@")[1])
-		totalDocs += 1
+	global secondaryIndexIndices
 	wordHash.append("No record")
 	for line in wordh:
 		wordHash.append(line.split('#')[0])
@@ -72,7 +70,7 @@ def process(query):
 	words = tokenizer(query)
 	modified_query = []
 	for word in words:
-		if len(word) >= 2 and not nlp.vocab[word.text].is_stop:
+		if len(word) >= 3 and not nlp.vocab[word.text].is_stop:
 			word = ps.stemWord(word.text)
 			if word not in wordHash:
 				continue
@@ -81,15 +79,23 @@ def process(query):
 fields = ['c', 'r', 'i', 'b', 't']
 printToFileLength = 0
 def printToFile(freq):
+	if len(freq) == 0:
+		print("No result found")
+		return
 	result_count = 0
 	for x, y in freq:
 		result_count += 1
 		# print(x, y)
-		print(docTitleMapping[int(x)], end='')
+		# print(docTitleMapping[int(x)], end='')
 		# print(freq[x])
-		# outputWrite.write(docTitleMapping[x])
+		fptr = open(docFolder + x + ".txt", "r")
+		print(fptr.readline(), end = '')
+		# outputWrite.write(fptr.readline())
+		# fptr.close()
 		if result_count == 10:
 			break
+	print("")
+	# outputWrite.write("\n")
 def search(query):
 	query = process(query)
 	freq = defaultdict(lambda:0)
@@ -97,56 +103,63 @@ def search(query):
 	flag = defaultdict(lambda:0)
 	queryFreq = defaultdict(lambda:0)
 	for q in query:
-		ptr = bisect.bisect_left(secondaryIndexIndices, q)
-		if secondaryIndexIndices[ptr] != q:
-			continue
-		primaryFile = open(indexFolder + "/primary/primary" + str(secondaryIndex[ptr]) + ".txt")
-		doc = primaryFile.read()
-		start = doc.find(str(q) + "@")
-		wordDocCount = 0
-		curType = 'x'
-		while start != -1:
-			end = doc.find("\n", start + 1)
-			line = doc[start:end]
-			line = line.split("@")[1]
-			line = line.split(":")
-			curType = line[0]
-			line = line[1]
-			line = line.split(",")
-			for x in line:
-				cur_split = x.split("-")
-				if len(cur_split) != 2:
-					continue
-				wordDocCount += 1
-				queryFreq[cur_split[0]] += math.log10(int(cur_split[1]) * weights[curType]) * idf[q]	
-			start = doc.find(str(q) + "@", end + 1)
+		try:
+			ptr = bisect.bisect_left(secondaryIndexIndices, q)
+			if secondaryIndexIndices[ptr] != q:
+				continue
+			primaryFile = open(indexFolder + "/primary/primary" + str(secondaryIndex[q]) + ".txt")
+			doc = primaryFile.read()
+			start = doc.find(str(q) + "@")
+			wordDocCount = 0
+			curType = 'x'
+			while start != -1:
+				end = doc.find("\n", start + 1)
+				line = doc[start:end]
+				line = line.split("@")[1]
+				line = line.split(":")
+				curType = line[0]
+				line = line[1]
+				line = line.split(",")
+				for x in line:
+					cur_split = x.split("-")
+					if len(cur_split) != 2:
+						continue
+					wordDocCount += 1
+					queryFreq[cur_split[0]] += math.log10(int(cur_split[1]) * weights[curType]) * idf[q]	
+				start = doc.find(str(q) + "@", end + 1)
+		except:
+			pass
 	queryFreq = sorted(queryFreq.items() , reverse=True, key=lambda x: x[1])
 	printToFile(queryFreq)
 
 def fieldQueryHelper(query, cur_type, relevance, factor, printFlag):
 	query = process(query)
 	for q in query:
-		ptr = bisect.bisect_left(secondaryIndexIndices, q)
-		if secondaryIndexIndices[ptr] != q:
-			continue
-		primaryFile = open(indexFolder + "/primary/primary" + str(secondaryIndex[ptr]) + ".txt")
-		doc = primaryFile.read()
-		start = doc.find(str(q) + "@" + cur_type + ":")
-		if start == -1:
-			continue
-		end = doc.find("\n", start + 1)
-		line = doc[start:end]
-		line = line.split("@")[1]
-		line = line.split(":")[1]
-		line = line.split(",")
-		for x in line:
-			cur_split = x.split("-")
-			if len(cur_split) != 2:
+		try:
+			ptr = bisect.bisect_left(secondaryIndexIndices, q)
+			# print(ptr, len(secondaryIndex))
+			if ptr >= len(secondaryIndexIndices):
+				return relevance
+			if secondaryIndexIndices[ptr] != q:
 				continue
-			relevance[cur_split[0]] += math.log10(int(cur_split[1]) + 1) * idf[q]* factor[cur_split[0]] * weights[cur_type]
-			factor[cur_split[0]] *= 10
-			# print(docTitleMapping[int(cur_split[0])], end='')
-			# print(cur_split[1], cur_type,  math.log10(int(cur_split[1])+1) * idf[q])
+			primaryFile = open(indexFolder + "/primary/primary" + str(secondaryIndex[q]) + ".txt")
+			doc = primaryFile.read()
+			start = doc.find(str(q) + "@" + cur_type + ":")
+			if start == -1:
+				continue
+			end = doc.find("\n", start + 1)
+			line = doc[start:end]
+			line = line.split("@")[1]
+			line = line.split(":")[1]
+			line = line.split(",")
+			for x in line:
+				cur_split = x.split("-")
+				if len(cur_split) != 2:
+					continue
+				relevance[cur_split[0]] += math.log10(int(cur_split[1]) + 1) * idf[q]* factor[cur_split[0]] * weights[cur_type]
+				factor[cur_split[0]] *= 10
+		except:
+			pass
 	if printFlag == 1:
 		relevance = sorted(relevance.items() , reverse=True, key=lambda x: x[1])
 		printToFile(relevance)
@@ -159,7 +172,7 @@ def parse_field(query):
 	for data in split:
 		cur_split = data.split(':')
 		if len(cur_split) < 2:
-			parsed[prev] = parsed[prev] + ' ' + 	cur_split[0]
+			parsed[prev] = parsed[prev] + ' ' + cur_split[0]
 			continue
 		prev = cur_split[0][0]
 		parsed[cur_split[0][0]] = cur_split[1]
@@ -181,14 +194,17 @@ def fieldQuery(query):
 #     with open(testfile, 'r') as file:
 #         queries = file.readlines()
 #     return queries
+print("Preprocessing...")
 init()
+print("Preprocessing Done")
 # query = "title:gandhi body:arjun infobox:gandhi category:gandhi ref:gandhi"
 # fieldQuery(parse_field(query))
-search("new york mayor")
+# search("new york mayor")
 # queries = read_file(testFile)
-# for query in queries:
-# 	if ':' not in query:
-# 		search(query)
-# 	else:
-# 		field = parse_field(query)
-# 		fieldQuery(field)
+while True:
+	query = input()
+	if ':' not in query:
+		search(query)
+	else:
+		field = parse_field(query)
+		fieldQuery(field)

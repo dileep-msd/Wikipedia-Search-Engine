@@ -2,9 +2,12 @@ import glob
 import os
 from heapq import heapify, heappush, heappop
 from collections import defaultdict
+import sys
 
-indexFolder = "./indexes/"
-index = glob.glob("./indexes/Harsh_Index/*")
+indexFolder = sys.argv[1]
+if indexFolder[-1] == '/':
+	indexFolder = indexFolder[:-1]
+index = glob.glob(indexFolder + "/Harsh_Index/*")
 fptr = dict()
 totalFiles = len(index)
 heapObj = list()
@@ -12,7 +15,7 @@ line = dict()
 words = dict()
 invertedIndex = defaultdict(lambda:defaultdict(lambda:""))
 secondaryIndex = defaultdict(lambda:0)
-secondary = open(indexFolder + "secondary.txt","w+") 
+secondary = open(indexFolder + "/secondary.txt","w+") 
 limit = 10000
 indexFile = 0
 
@@ -29,7 +32,7 @@ def writeSecondary():
 def writePrimary():
 	global indexFile
 	indexFile += 1
-	primary = open(indexFolder + "primary/" + "primary" + str(indexFile) + ".txt" ,"w+") 
+	primary = open(indexFolder + "/primary/" + "primary" + str(indexFile) + ".txt" ,"w+") 
 	for word, dict1 in invertedIndex.items():
 		for curType, val in dict1.items():
 			primary.write(word + "@" + curType + ":" + val + '\n')
@@ -73,7 +76,7 @@ while filesDone < totalFiles:
 			filesDone += 1
 			fptr[i].close()
 			done[i] = 1
-			# os.remove(index[i])
-
+			os.remove(index[i])
 writePrimary()
 writeSecondary()
+os.rmdir(indexFolder + "/Harsh_Index")

@@ -44,6 +44,7 @@ def writePrimary():
 	invertedIndex.clear()
 	primary.close()
 
+print("Merging...")
 # initialises heap
 for i in range(len(index)):
 	fptr[i] = open(index[i], "r")

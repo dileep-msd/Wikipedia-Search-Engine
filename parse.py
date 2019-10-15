@@ -121,6 +121,7 @@ class WikipediaHandler(ContentHandler):
 			global totalDocs
 			self.ID += 1
 			totalDocs += 1
+			print("#docs parsed = ", totalDocs)
 		if tag == "text":
 			self.buffer = ""
 			self.textFlag = 1

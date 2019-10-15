@@ -19,6 +19,7 @@ secondary = open(indexFolder + "/secondary.txt","w+")
 limit = 8000
 indexFile = 0
 
+# create index folder
 if not os.path.exists(indexFolder + "/primary"):
     os.makedirs(indexFolder + "/primary")
 
@@ -33,10 +34,13 @@ def writePrimary():
 	global indexFile
 	indexFile += 1
 	primary = open(indexFolder + "/primary/" + "primary" + str(indexFile) + ".txt" ,"w+") 
+	f = 0
 	for word, dict1 in invertedIndex.items():
 		for curType, val in dict1.items():
-			primary.write(str(word) + "@" + curType + ":" + val + '\n')
-			secondaryIndex[word] = indexFile
+			primary.write("!" + str(word) + "@" + curType + ":" + val + '\n')
+			if f == 0:
+				secondaryIndex[word] = indexFile
+				f = 1
 	invertedIndex.clear()
 	primary.close()
 
@@ -45,13 +49,11 @@ for i in range(len(index)):
 	fptr[i] = open(index[i], "r")
 	line[i] = fptr[i].readline()
 	words[i] = line[i].split("@")
-	if [int(words[i][0]), words[i][1][0]] not in heapObj:
-		heappush(heapObj, [int(words[i][0]), words[i][1][0]])
+	if [words[i][0], words[i][1][0]] not in heapObj:
+		heappush(heapObj, [words[i][0], words[i][1][0]])
 done = [0] * (totalFiles)
 filesDone = 0
 primaryBufferSize = 0
-# invertedIndex[dictionary[word]] = "string"
-# dictionary[word]@field:docid-freq,
 prevWord = -1
 # Main index merge logic
 while filesDone < totalFiles:
@@ -62,7 +64,7 @@ while filesDone < totalFiles:
 		primaryBufferSize = 0
 	prevWord = cur[0]
 	for i in range(totalFiles):
-		if done[i] == 1 or int(words[i][0]) != cur[0] or words[i][1][0] != cur[1]:
+		if done[i] == 1 or words[i][0] != cur[0] or words[i][1][0] != cur[1]:
 			continue
 		primaryBufferSize += 1
 		invertedIndex[cur[0]][cur[1]] += (words[i][1].split(":")[1])
@@ -71,7 +73,7 @@ while filesDone < totalFiles:
 		if line[i]:
 			words[i] = line[i].split("@")
 			if [words[i][0], words[i][1][0]] not in heapObj:
-				heappush(heapObj, [int(words[i][0]), words[i][1][0]])
+				heappush(heapObj, [words[i][0], words[i][1][0]])
 		else:
 			filesDone += 1
 			fptr[i].close()

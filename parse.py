@@ -1,13 +1,16 @@
 from xml.sax import parse, ContentHandler
 from collections import defaultdict
 import re
-from spacy.lang.en import English
 import time
-import spacy
 from Stemmer import Stemmer
 import sys
 import os
 import math
+import nltk
+from nltk.tokenize import word_tokenize 
+
+nltk.download('stopwords')
+stop_words = set(nltk.corpus.stopwords.words('english')) 
 
 dump = sys.argv[1]
 indexFolder = sys.argv[2]
@@ -18,22 +21,12 @@ if not os.path.exists(indexFolder):
 if not os.path.exists(indexFolder + "/Harsh_Index"):
     os.makedirs(indexFolder + "/Harsh_Index")
 
-nlp = English()
-tokenizer = spacy.tokenizer.Tokenizer(nlp.vocab)
-
 invertedIndex = defaultdict(lambda:defaultdict(lambda:defaultdict(int)))
-dictionary = {}
-# Stores the number of docs containing the word
-# Helps in computing idf
 wordDoc = defaultdict(lambda:0)
 count_words = 1
 docFolder = indexFolder + "/docTitle"
-idfFolder = indexFolder + "/IDF"
-# docTitle = open(indexFolder + "/docTitle.txt","w") 
 if not os.path.exists(docFolder):
     os.makedirs(docFolder)
-if not os.path.exists(idfFolder):
-    os.makedirs(idfFolder)
 
 limit = 8000
 lastFile = 0
@@ -42,74 +35,69 @@ totalDocs = 0
 # porter stemmer
 ps = Stemmer("porter")
 
-regEx = re.compile(r'[.,:;_\[\]{}()"/\']',re.DOTALL)
+regEx = re.compile(r'[.,:-;\'?~`*&|\+!@$%^#\<\>=_\[\]{}()"/\']',re.DOTALL)
 regSym = re.compile(r'[~`!@#$%-^*+{\[}\]\|\\<>/?\_\"]',re.DOTALL)
 regCateg = re.compile(r'\[\[category:(.*?)\]\]', re.DOTALL)
 regInfo = re.compile(r'{{infobox(.*?)}}', re.DOTALL)
 regRef = re.compile(r'== ?references ?==(.*?)==', re.DOTALL)
-
+cur_words = {}
 def addToIndex(words, ID, cur_type):
-	global count_words
+	global count_words, cur_words
 	for word in words:
-		if len(word.text) >= 3 and not nlp.vocab[word.text].is_stop:
-			word = ps.stemWord(word.text)
-			if word not in dictionary:
-				dictionary[word] = count_words
-				count_words += 1
-			invertedIndex[dictionary[word]][cur_type][ID] += 1
-			if invertedIndex[dictionary[word]][cur_type][ID] == 1:
-				wordDoc[dictionary[word]] += 1
+		if len(word) >= 3 and word not in stop_words:
+			word = ps.stemWord(word)
+			try:
+				invertedIndex[word][cur_type][ID] += 1
+			except:
+				pass
 def reg_word(word):
 	word = re.sub(r"([\n\t ]) *", r" ", word)
-	word = regSym.sub(' ', word)
 	word = regEx.sub(' ', word)
+	word = re.sub(' +', ' ', word).strip()
 	return word
 # Takes a sentence as input and calls the addtoindex function
 def parse_sentence(word, ID, title, text):
 	word = word.lower()
+	global totalDocs
 	if title:
 		word = regEx.sub('', word)
-		words = tokenizer(word)
+		words = word_tokenize(word)
 		addToIndex(words, ID, 't')
 	elif text:
 		# finding categories
 		categories = re.findall(r'\[\[category:(.*?)\]\]', word, flags=re.MULTILINE)
 		categories = ' '.join(categories)
 		categories = reg_word(categories)
-		categories = tokenizer(categories)
+		categories = word_tokenize(categories)
 		addToIndex(categories, ID, 'c')
 		
 		# finding references
 		references = re.findall(r'== ?references ?==(.*?)==', word, flags=re.DOTALL)
 		references = ' '.join(references)
 		references = reg_word(references)
-		references = tokenizer(references)
+		references = word_tokenize(references)
 		addToIndex(references, ID, 'r')
 		
 		# content in infobox
 		infobox = re.findall(r'{{infobox(.*?)}}', word, flags=re.DOTALL)
 		infobox = ' '.join(infobox)
 		infobox = reg_word(infobox)
-		infobox = tokenizer(infobox)
+		infobox = word_tokenize(infobox)
 		addToIndex(infobox, ID, 'i')
 		
 		# body of content
 		word = reg_word(word)
 		# words = nlp(word)
-		words = tokenizer(word)
+		words = word_tokenize(word)
 		addToIndex(words, ID, 'b')
 		if ID % limit == 0 and ID != 0:
 			global lastFile
 			lastFile = int(ID/limit)
 			fptr = open(indexFolder + "/Harsh_Index/" + str(int(ID/limit)) + '.txt',"w+")
-			# dictionary[word]@field:docid-freq,
-			dictList = list(dictionary)
 			for word, list1 in sorted(invertedIndex.items()):
 				for field, list2 in sorted(list1.items()):
-					output = str(word) + "@" + str(field) + ":"
+					output = word + "@" + str(field) + ":"
 					for ID,freq in list2.items():
-						# if freq < 50 and len(dictList[word-1]) <= 2:
-							# continue
 						output += (str(ID) + '-' + str(freq) + ',')
 					fptr.write(output + "\n")
 			fptr.close()
@@ -128,6 +116,8 @@ class WikipediaHandler(ContentHandler):
 			self.buffer = ""
 			self.titleFlag = 1
 		if tag == "page":
+			global cur_words
+			cur_words.clear()
 			global totalDocs
 			self.ID += 1
 			totalDocs += 1
@@ -140,7 +130,6 @@ class WikipediaHandler(ContentHandler):
 	def endElement(self, tag):
 		if self.titleFlag:
 			fptr = open(docFolder + "/" + str(self.ID) + ".txt","w+") 
-			# fptr = open(docTitle + "/self.")
 			fptr.write(self.buffer + "\n")
 			fptr.close()
 			parse_sentence(self.buffer, self.ID, 1, 0)
@@ -162,25 +151,11 @@ parse(dump, WikipediaHandler())
 
 if len(invertedIndex) > 0:
 	fptr = open(indexFolder + "/Harsh_Index/" + str(lastFile + 1) + '.txt',"w+")
-	# dictionary[word]@field:docid-freq,
-	dictList = list(dictionary)
 	for word, list1 in sorted(invertedIndex.items()):
 		for field, list2 in sorted(list1.items()):
-			output = str(word) + "@" + str(field) + ":"
+			output = word + "@" + str(field) + ":"
 			for ID,freq in list2.items():
-				# if freq < 50 and len(dictList[word-1]) <= 2:
-					# continue
 				output += (str(ID) + '-' + str(freq) + ',')
 			fptr.write(output + "\n")
 	fptr.close()
 	invertedIndex.clear()
-
-fptr1 = open(indexFolder + "/word_hash.txt","a+")
-for word in dictionary:
-	fptr1.write(word + '#' + str(dictionary[word]) + '\n')
-fptr1.close()
-
-for word in wordDoc:
-	fptr2 = open(idfFolder + "/" + str(word) + ".txt","w+")
-	fptr2.write(str(math.log10(totalDocs/wordDoc[word])))
-	fptr2.close()
